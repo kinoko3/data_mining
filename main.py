@@ -60,7 +60,6 @@ for k in range(2, 20):
                                                    min_support=min_support)
     frequent_itemsets[k] = cur_frequent_itemsets
 del frequent_itemsets[1]
-print(frequent_itemsets)
 
 
 candidate_rules = []    # 关联规则
@@ -93,9 +92,18 @@ for user, reviews in favorable_reviews_by_users.items():
             else:
                 incorrect_couts[candidate_rule] += 1
             # 置信度计算 P(B|A) = P(AB) / P(A)，每条规则的置信度
-        rule_confidence = {candidate_rule: corrent_couts[candidate_rule] / float(corrent_couts[candidate_rule]
-                                                                                 + incorrect_couts[candidate_rule])
-                           for candidate_rule in candidate_rules}
-print(rule_confidence.items())
+
+
+rule_confidence = {candidate_rule: corrent_couts[candidate_rule] / float(corrent_couts[candidate_rule] + incorrect_couts[candidate_rule])
+                   for candidate_rule in candidate_rules}
+
+sorted_confidence = sorted(rule_confidence.items(), key=itemgetter(1), reverse=True)
+
+for index in range(5):
+    print("Rule #{0}".format(index + 1))
+    (premise, conclusion) = sorted_confidence[index][0]
+    print("Rule:if a person recommends {0} they will also recommend {1}".format(premise, conclusion))
+    print("- confidence:{0:.3f}".format(rule_confidence[(premise,conclusion)]))
+    print("  ")
 
 
