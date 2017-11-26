@@ -1,6 +1,7 @@
 import pandas as pd
 from collections import defaultdict
 import sys
+from operator import itemgetter
 Dir = '/Users/su/Desktop/python_project/ml-20m/ratings.csv'
 all_ratings = pd.read_csv(Dir)
 # 时间戳转换
@@ -38,14 +39,15 @@ def find_frequent_itemsets(favorable_reviews_by_users, k_1_itemsets, min_support
     counts = defaultdict(int)
     for user, reviews in favorable_reviews_by_users.items():
         for itemset in k_1_itemsets:
-            # 判断子集，a.issubset(b), a是否是b的子集
+            # 判断子集，a.issubset(b), a是否是b的子集去，表示用户已经为该电影打分
             if itemset.issubset(reviews):
                                             # 差集，相对补集
                 for other_reviewed_movie in reviews - itemset:
-                                                # 合集
-                    # 生成超集
+                    # 生成超集                      # 合集
+                    # 生成候选项集,连接步
                     current_superset = itemset | frozenset((other_reviewed_movie,))
-
+                    # 支持度计算
+                    # 判断集合是否在超集中，在就+1（剪枝？）
                     counts[current_superset] += 1
 
     return dict([(itemset, frequency)
@@ -57,13 +59,43 @@ for k in range(2, 20):
                                                    frequent_itemsets[k-1],
                                                    min_support=min_support)
     frequent_itemsets[k] = cur_frequent_itemsets
-
-    if len(cur_frequent_itemsets) == 0:
-        print("什么都没有 {}".format(k))
-        sys.stdout.flush()
-        break
-    else:
-        print("{}长度{}".format(len(cur_frequent_itemsets), k))
-        sys.stdout.flush()
+del frequent_itemsets[1]
 print(frequent_itemsets)
+
+
+candidate_rules = []    # 关联规则
+for itemset_length, itemset_counts in frequent_itemsets.items():
+    # 遍历在频繁项集中出现的每一部电影
+    for itemset in itemset_counts.keys():   # 获取项集
+        for conclusion in itemset:  # 遍历项集内数据
+            premise = itemset - set((conclusion,))
+            # 使用前提和结论作为规则
+            # 比如 (frozenset({47, 50, 318, 593}), 296)
+            #     (frozenset({50}), 47)
+            # 数据表示用户喜欢集合内电影，可能会喜欢后一个电影
+            candidate_rules.append((premise, conclusion))
+
+# 开始计算置信度
+
+# 存储规则应验的次数
+corrent_couts = defaultdict(int)
+# 不应验的次数
+incorrect_couts = defaultdict(int)
+
+for user, reviews in favorable_reviews_by_users.items():
+    for candidate_rule in candidate_rules:
+        premise, conclusion = candidate_rule
+        # 判断是否喜欢前提电影
+        if premise.issubset(reviews):
+            # 判断是否喜欢结论电影
+            if conclusion in reviews:
+                corrent_couts[candidate_rule] += 1
+            else:
+                incorrect_couts[candidate_rule] += 1
+            # 置信度计算 P(B|A) = P(AB) / P(A)，每条规则的置信度
+        rule_confidence = {candidate_rule: corrent_couts[candidate_rule] / float(corrent_couts[candidate_rule]
+                                                                                 + incorrect_couts[candidate_rule])
+                           for candidate_rule in candidate_rules}
+print(rule_confidence.items())
+
 
