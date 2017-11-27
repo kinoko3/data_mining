@@ -1,2 +1,5 @@
 py3env/*
 .idea/*
+.ipynb_checkpoints/*
+ch4AffinityAnalysis.ipynb
+

@@ -3,6 +3,9 @@ from collections import defaultdict
 import sys
 from operator import itemgetter
 Dir = '/Users/su/Desktop/python_project/ml-20m/ratings.csv'
+Dir_movie_name = '/Users/su/Desktop/python_project/ml-20m/movies.csv'
+movie_name_data = pd.read_csv(Dir_movie_name)
+
 all_ratings = pd.read_csv(Dir)
 # 时间戳转换
 all_ratings['timestamp'] = pd.to_datetime(all_ratings['timestamp'], unit='s')
@@ -97,13 +100,67 @@ for user, reviews in favorable_reviews_by_users.items():
 rule_confidence = {candidate_rule: corrent_couts[candidate_rule] / float(corrent_couts[candidate_rule] + incorrect_couts[candidate_rule])
                    for candidate_rule in candidate_rules}
 
+# 置信度排序
 sorted_confidence = sorted(rule_confidence.items(), key=itemgetter(1), reverse=True)
 
 for index in range(5):
     print("Rule #{0}".format(index + 1))
     (premise, conclusion) = sorted_confidence[index][0]
     print("Rule:if a person recommends {0} they will also recommend {1}".format(premise, conclusion))
-    print("- confidence:{0:.3f}".format(rule_confidence[(premise,conclusion)]))
+    print("- confidence:{0:.3f}".format(rule_confidence[(premise, conclusion)]))
     print("  ")
 
 
+# 获取电影名
+def get_movie_name(movie_id):
+    title_object = movie_name_data[movie_name_data['movieId'] == movie_id]['title']
+    title = title_object.values[0]
+    return title
+
+
+print("----------------------------------------------------"
+      "----------------------------------------------------------------------------------")
+
+for index in range(5):
+    print("Rule #{0}".format(index + 1))
+    (premise, conclusion) = sorted_confidence[index][0]
+    premise_names = ", ".join(get_movie_name(idx) for idx in premise)
+    conclusion_name = get_movie_name(conclusion)
+    print("Rule: If a person recommends {0} they will also recommend {1}".format(premise_names, conclusion_name))
+    print(" - Confidence: {0:.3f}".format(rule_confidence[(premise, conclusion)]))
+    print("")
+
+# 获取测试集，除了训练集200其余
+test_dataset = all_ratings[~all_ratings['userId'].isin(range(200))]
+test_favorable = test_dataset[test_dataset["favorable"]]
+test_favorable_by_users = dict((k, frozenset(v.values)) for k, v in test_favorable.groupby("userId")["movieId"])
+
+correct_counts = defaultdict(int)
+incorrect_counts = defaultdict(int)
+
+for user, reviews in test_favorable_by_users.items():
+    for candidate_rule in candidate_rules:
+        premise, conclusion = candidate_rule
+        if premise.issubset(reviews):
+            if conclusion in reviews:
+                correct_counts[candidate_rule] += 1
+            else:
+                incorrect_counts[candidate_rule] += 1
+
+test_confidence = {candidate_rule: correct_counts[candidate_rule] / float(correct_counts[candidate_rule] + incorrect_counts[candidate_rule])
+                   for candidate_rule in rule_confidence}
+
+sorted_test_confidence = sorted(test_confidence.items(), key=itemgetter(1), reverse=True)
+
+print("----------------------------------------------------"
+      "----------------------------------------------------------------------------------")
+
+for index in range(10):
+    print("Rule #{0}".format(index + 1))
+    (premise, conclusion) = sorted_confidence[index][0]
+    premise_names = ", ".join(get_movie_name(idx) for idx in premise)
+    conclusion_name = get_movie_name(conclusion)
+    print("Rule: If a person recommends {0} they will also recommend {1}".format(premise_names, conclusion_name))
+    print(" - Train Confidence: {0:.3f}".format(rule_confidence.get((premise, conclusion), -1)))
+    print(" - Test Confidence: {0:.3f}".format(test_confidence.get((premise, conclusion), -1)))
+    print("")
